@@ -1,0 +1,68 @@
+version: 2.1
+
+jobs:
+  lint-dockerfile:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Install hadolint
+          command: |
+            curl -sSL -o /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+            chmod +x /usr/local/bin/hadolint
+      - run:
+          name: Lint Dockerfile
+          command: hadolint Dockerfile
+
+  test-app:
+    docker:
+      - image: cimg/go:1.20
+    steps:
+      - checkout
+      - run:
+          name: Run Go tests
+          command: go test -v -short --count=1 $(go list ./...)
+
+  build-app-karsajobs:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Build and Push for karsajobs
+          command: |
+            chmod +x ./karsajobs/build_push_image_karsajobs.sh
+            ./karsajobs/build_push_image_karsajobs.sh
+
+  build-app-karsajobs-ui:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Build and Push for karsajobs-ui
+          command: |
+            chmod +x ./karsajobs-ui/build_push_image_karsajobs_ui.sh
+            ./karsajobs-uibuild_push_image_karsajobs_ui.sh
+
+workflows:
+  version: 2
+
+  ci-karsajobs:
+    when: << pipeline.git.branch >> == "karsajobs"
+    jobs:
+      - lint-dockerfile
+      - test-app
+      - build-app-karsajobs:
+          requires:
+            - lint-dockerfile
+            - test-app
+
+  ci-karsajobs-ui:
+    when: << pipeline.git.branch >> == "karsajobs-ui"
+    jobs:
+      - lint-dockerfile
+      - build-app-karsajobs-ui:
+          requires:
+            - lint-dockerfile
