@@ -1,9 +1,25 @@
 version: 2.1
 
 jobs:
-  lint-dockerfile:
+  lint-dockerfile-karsajobs:
     docker:
       - image: cimg/base:stable
+    working_directory: ~/project/karsajobs
+    steps:
+      - checkout
+      - run:
+          name: Install hadolint
+          command: |
+            curl -sSL -o /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+            chmod +x /usr/local/bin/hadolint
+      - run:
+          name: Lint Dockerfile
+          command: hadolint Dockerfile
+
+  lint-dockerfile-karsajobs-ui:
+    docker:
+      - image: cimg/base:stable
+    working_directory: ~/project/karsajobs-ui
     steps:
       - checkout
       - run:
@@ -18,6 +34,7 @@ jobs:
   test-app:
     docker:
       - image: cimg/go:1.20
+    working_directory: ~/project/karsajobs
     steps:
       - checkout
       - run:
@@ -27,6 +44,7 @@ jobs:
   build-app-karsajobs:
     docker:
       - image: cimg/base:stable
+    working_directory: ~/project
     steps:
       - checkout
       - run:
@@ -38,31 +56,45 @@ jobs:
   build-app-karsajobs-ui:
     docker:
       - image: cimg/base:stable
+    working_directory: ~/project
     steps:
       - checkout
       - run:
           name: Build and Push for karsajobs-ui
           command: |
             chmod +x ./karsajobs-ui/build_push_image_karsajobs_ui.sh
-            ./karsajobs-uibuild_push_image_karsajobs_ui.sh
+            ./karsajobs-ui/build_push_image_karsajobs_ui.sh
 
 workflows:
   version: 2
 
   ci-karsajobs:
-    when: << pipeline.git.branch >> == "karsajobs"
     jobs:
-      - lint-dockerfile
-      - test-app
+      - lint-dockerfile-karsajobs:
+          filters:
+            branches:
+              only: karsajobs
+      - test-app:
+          filters:
+            branches:
+              only: karsajobs
       - build-app-karsajobs:
           requires:
-            - lint-dockerfile
+            - lint-dockerfile-karsajobs
             - test-app
+          filters:
+            branches:
+              only: karsajobs
 
   ci-karsajobs-ui:
-    when: << pipeline.git.branch >> == "karsajobs-ui"
     jobs:
-      - lint-dockerfile
+      - lint-dockerfile-karsajobs-ui:
+          filters:
+            branches:
+              only: karsajobs-ui
       - build-app-karsajobs-ui:
           requires:
-            - lint-dockerfile
+            - lint-dockerfile-karsajobs-ui
+          filters:
+            branches:
+              only: karsajobs-ui
